@@ -1,0 +1,37 @@
+Вариант 1
+
+- Выполнить задания 1-2 с использованием оператора LIKE
+
+1.	Вывести имена покупателей, которые начинаются и заканчиваются на букву v.
+select name from cust where name ilike 'v%v';
+
+2.	Вывести названия городов из таблицы продуктов, в которых вторая буква о, отсортированные в обратном порядке.
+select city from my_schema.prod where city like '_o%' order by city desc;
+
+- Выполнить задания 3-4 с использованием строковых функций
+
+3.	Вывести в верхнем регистре все города из таблицы продавцов, имеющие длину более 6 символов. Пробелы в названиях городов должны быть удалены, а названия выведены по алфавиту.
+elect upper(replace(city, ' ','')) from my_schema.sal where length(city)>6 order by city asc;
+
+4.	Вывести в одном столбце номера покупателей, соединенные с его именем и городом, в формате: ‘2001-IVANOV-PERM, только для тех покупателей, чье имя содержит подстроку ‘ov’.
+select upper(concat(cnum,'-',name,'-',city)) from my_schema.cust where name like('%ov%');
+
+- Выполнить задания 5-6 с использованием функций работы с датами
+
+5.	Вывести временной интервал между сегодняшней датой и датой самого раннего заказа.
+select age(current_date, ord_date) from my_schema.ord order by ord_date asc limit 1;
+
+6.	Вывести текущее время в формате 12тичасовых часов, с обозначением “am” для первой половины суток и “pm” – для второй.
+select to_char(localtime, 'HH12:MI AM') as time_12h;
+
+- Выполнить задания 7-8 с использованием регулярных выражений
+
+7.	Вывести имена покупателей, начинающиеся с букв A-I и заканчивающиеся на ‘ov’.
+select name from my_schema.cust where name~'^[A-I]' and name~'ov$';
+
+8.	Вывести имена продавцов, в которых содержится две подряд идущих согласных, не стоящих в конце слова.
+select name from my_schema.sal where name ~* '(?=.*[bcdfghjklmnpqrstvwxyz]{2,})[a-z]+' and name !~*'[bcdfghjklmnpqrstvwxyz]{2,}$';
+select name from my_schema.sal where name ~* '[^aeiouy]{2}[aeiouy]';
+
+Защита:
+SELECT 1 WHERE 'E3-D1.E3-H5.' ~ '([A-H][1-8]-[A-H][1-8]\.)+';

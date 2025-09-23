@@ -1,0 +1,223 @@
+1.	Подключиться к СУБД Postgres, cоздать новую базу данных my_db, создать в ней новую схему my_schema. Созданные БД и схема должны быть выбраны в качестве основных для дальнейшей работы.
+
+createdb my_db
+
+sudo psql -U antondmitriev -d my_db
+
+SET SEARCH_PATH TO my_schema;
+
+2.	С помощью команды CREATE создать 4 таблицы: prod, cust, sal, ord.
+
+create table prod(
+pnum int primary key,
+name varchar(20) not null,
+weight int not null,
+city varchar(20) not null);
+
+create table cust(
+cnum int primary key,
+name varchar(20) not null,
+rating int not null,
+city varchar(20) not null);
+
+create table sal(
+snum int primary key,
+name varchar(20) not null,
+comm numeric(7,2) not null,
+city varchar(20) not null);
+
+create table ord(
+onum int primary key,
+pnum int not null,
+cnum int not null,
+snum int not null,
+amt int not null,
+foreign key (pnum) references prod(pnum),
+foreign key (cnum) references cust(cnum),
+foreign key (snum) references sal(snum));
+
+3.	С помощью команды INSERT заполнить таблицы.
+
+insert into prod values (1001, 'Monitor',2000,'Obninsk');
+insert into prod values (1002, 'Keyboard',500,'Yekaterinburg' );
+insert into prod values (1003, 'Mouse', 100,'Novosibirsk');
+insert into prod values (1004, 'Printer',1500,'Saint Petersburg' );
+insert into prod values (1005, 'Hard drive',300, 'Moscow');
+insert into prod values (1006, 'Speakers', 700,'Novosibirsk');
+
+insert into cust values (2001, 'Ivanov', 100, 'Perm');
+insert into cust values (2002, 'Petrov', 100, 'Moscow');
+insert into cust values (2003, 'Vasiliev', 200, 'Yekaterinburg');
+insert into cust values (2004, 'Dmitriev', 200, 'Krasnoyarsk');
+insert into cust values (2005, 'Skvortcov', 300, 'Moscow');
+insert into cust values (2006, 'Avdeev', 400, 'Novosibirsk');
+insert into cust values (2007, 'Smirnov', 100, 'Omsk');
+
+insert into sal values (3001, 'DNS', 0.11, 'Novosibirsk');
+insert into sal values (3002, 'Citylink', 0.12, 'Saint Petersburg');
+insert into sal values (3003, 'MVideo', 0.15, 'Yekaterinburg');
+insert into sal values (3004, 'Inline', 0.13, 'Vladivistok');
+insert into sal values (3005, 'Elbrus', 0.11, 'Moscow');
+
+insert into ord values (4001, 1001, 2001, 3001, 2);
+insert into ord values (4002, 1001, 2002, 3001, 1);
+insert into ord values (4003, 1001, 2006, 3002, 10);
+insert into ord values (4004, 1001, 2003, 3003, 5);
+insert into ord values (4005, 1001, 2004, 3004, 5);
+insert into ord values (4006, 1002, 2001, 3005, 7);
+insert into ord values (4007, 1002, 2002, 3001, 8);
+insert into ord values (4008, 1003, 2001, 3002, 3);
+insert into ord values (4009, 1003, 2006, 3003, 1);
+insert into ord values (4010, 1003, 2007, 3004, 9);
+insert into ord values (4011, 1003, 2004, 3003, 6);
+insert into ord values (4012, 1004, 2002, 3001, 6);
+insert into ord values (4013, 1004, 2001, 3002, 4);
+insert into ord values (4014, 1004, 2001, 3004, 4);
+insert into ord values (4015, 1004, 2006, 3003, 3);
+insert into ord values (4016, 1004, 2004, 3005, 3);
+insert into ord values (4017, 1004, 2007, 3002, 2);
+insert into ord values (4018, 1005, 2001, 3005, 1);
+insert into ord values (4019, 1006, 2004, 3005, 2);
+insert into ord values (4020, 1006, 2003, 3002, 3);
+
+insert into ord values 
+(4021, 1001, 2001, 3001, 9, '2025-09-10'), 
+(4022, 1001, 2002, 3001, 1, '2025-09-14'),
+(4023, 1001, 2006, 3002, 9, '2025-09-15'),
+(4024, 1001, 2003, 3003, 2, '2025-09-12'),
+(4025, 1001, 2001, 3004, 5, '2025-09-13'),
+(4026, 1002, 2001, 3005, 7, '2025-09-30'),
+(4027, 1002, 2002, 3001, 1, '2025-09-11'),
+(4028, 1003, 2001, 3002, 2, '2025-09-21'),
+(4029, 1003, 2006, 3003, 8, '2025-09-21'),
+(4030, 1003, 2007, 3004, 1, '2025-09-21'),
+(4031, 1003, 2007, 3003, 6, '2025-09-12'),
+(4032, 1004, 2007, 3001, 6, '2025-09-20'),
+(4033, 1004, 2001, 3004, 4, '2025-09-14'),
+(4034, 1004, 2001, 3004, 4, '2025-09-16'),
+(4035, 1004, 2001, 3003, 1, '2025-09-22'),
+(4036, 1004, 2004, 3005, 3, '2025-09-16'),
+(4037, 1004, 2007, 3002, 7, '2025-09-19'),
+(4038, 1005, 2001, 3005, 5, '2025-09-17'),
+(4039, 1006, 2004, 3005, 2, '2025-09-18'),
+(4040, 1006, 2003, 3002, 38, '2025-09-01');
+
+4.  Проверить корректность выполненных операций с помощью простейших выборок для каждой таблицы с помощью команды SELECT.
+
+SELECT * FROM my_schema.cust;
+ cnum | name | rating | city 
+------+------+--------+------
+(0 rows)
+
+my_db=# SELECT * FROM my_schema.sal;
+ snum | name | comm | city 
+------+------+------+------
+(0 rows)
+
+my_db=# SELECT * FROM my_schema.ord;
+ onum | pnum | cnum | snum | amt | ord_date 
+------+------+------+------+-----+----------
+(0 rows)
+
+5.	С помощью команды INSERT добавить в таблицу sal две новых записи о продавцах с номерами 3006 и 3007.
+
+insert into sal values (3006, 'Astra', 0.16, 'Innopolis');
+INSERT 0 1
+
+insert into sal values (3007, 'Redsoft', 0.13, 'Moscow');
+INSERT 0 1
+
+my_db=# SELECT * FROM my_schema.sal;
+ snum |   name   | comm |       city       
+------+----------+------+------------------
+ 3001 | DNS      | 0.11 | Novosibirsk
+ 3002 | Citylink | 0.12 | Saint Petersburg
+ 3003 | MVideo   | 0.15 | Yekaterinburg
+ 3004 | Inline   | 0.13 | Vladivistok
+ 3005 | Elbrus   | 0.11 | Moscow
+ 3006 | Astra    | 0.16 | Innopolis
+ 3007 | Redsoft  | 0.13 | Moscow
+(7 rows)
+
+6.	С помощью команды DELETE удалить из таблицы sal запись о продавце с номером 3007.
+
+delete from sal where snum = 3007;
+DELETE 1
+my_db=# SELECT * FROM my_schema.sal;
+ snum |   name   | comm |       city       
+------+----------+------+------------------
+ 3001 | DNS      | 0.11 | Novosibirsk
+ 3002 | Citylink | 0.12 | Saint Petersburg
+ 3003 | MVideo   | 0.15 | Yekaterinburg
+ 3004 | Inline   | 0.13 | Vladivistok
+ 3005 | Elbrus   | 0.11 | Moscow
+ 3006 | Astra    | 0.16 | Innopolis
+(6 rows)
+
+7.	С помощью команды ALTER добавить в таблицу ord новый столбец даты заказа с именем ord_date и типом данных date.
+
+alter table ord add column ord_date date;
+ALTER TABLE
+
+8.	C помощью команды UPDATE установить дату всех заказов равной 1 сентября 2025 года.
+
+update ord set ord_date = '2025-09-01';
+UPDATE 20
+
+9.	C помощью команды UPDATE установить дату всех заказов для продукта с номером 1002 равной 31 декабря 2024 года.
+
+update ord set ord_date = '2024-12-31' where pnum = 1002;
+UPDATE 2
+
+10.	Выполнить запросы к базе данных по выборке данных, согласно варианту бригады.
+
+Вариант 1
+
+1. Вывести все строки из таблицы Заказов, для которых номер продукта равен 1001.
+select * from ord where pnum = 1001;
+
+2. Вывести записи о продавцах с комиссионными ниже 0.14 со столбцами в следующем порядке: city, name, snum, comm.
+select city, name, snum, comm from sal where comm < 0.14;
+
+3. Вывести без повторений номера всех продавцов, которые продавали товары покупателям с номерами больше 2004.
+select distinct snum from ord where cnum > 2004;
+
+4. Вывести данные о всех покупателях с рейтингом меньше или равным 200, если они не находятся в Москве.
+select * from cust where rating <= 200 and city != 'Moscow';
+
+5. Вывести тремя различными способами все заказы продуктов с номерами 1002, 1003, 1004.
+select * from ord where pnum between 1002 and 1004;
+select * from ord where pnum in (1002, 1003, 1004);
+select * from ord where pnum = 1002 or pnum = 1003 or pnum = 1004;
+
+----------------------------------------------------------------------------------------------------------
+
+Защита:
+select * from prod where not (city='Novosibirsk' and weight > 1000);
+
+1. Превести на Русский
+Вывести данные о всех товарах не из Новосибирска или весом меньше либо равным 1000
+
+2. сколько выведет записей
+select * from prod where not (city='Novosibirsk' and weight > 1000);
+ pnum |    name    | weight |       city       
+------+------------+--------+------------------
+ 1001 | Monitor    |   2000 | Obninsk
+ 1002 | Keyboard   |    500 | Yekaterinburg
+ 1003 | Mouse      |    100 | Novosibirsk
+ 1004 | Printer    |   1500 | Saint Petersburg
+ 1005 | Hard drive |    300 | Moscow
+ 1006 | Speakers   |    700 | Novosibirsk
+(6 rows)
+
+3. Превести с использованием закона де Моргана (¬(a ∧ b) = ¬a ∨ ¬b, ¬(a ∨ b) = ¬a ∧ ¬b)
+select * from prod where city!='Novosibirsk' or weight <= 1000;
+ pnum |    name    | weight |       city       
+------+------------+--------+------------------
+ 1001 | Monitor    |   2000 | Obninsk
+ 1002 | Keyboard   |    500 | Yekaterinburg
+ 1003 | Mouse      |    100 | Novosibirsk
+ 1004 | Printer    |   1500 | Saint Petersburg
+ 1005 | Hard drive |    300 | Moscow
+ 1006 | Speakers   |    700 | Novosibirsk
+(6 rows)

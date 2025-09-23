@@ -1,0 +1,56 @@
+1.	Вывести товары, вес которых больше среднего веса всех товаров.
+select name from prod where weight > (select avg(weight) from prod);
+
+2.	Вывести общее количество проданных товаров для каждого продавца, у которого это количество больше, чем у продавца с номером 3003.
+select snum, sum(amt) from ord group by snum having sum(amt) > (select sum(amt) from ord where snum = 3003);
+
+3.	Выбрать продукты, которые заказывались покупателем с номером 2002 у продавцов, которые когда-либо делали заказы для покупателя 2001.
+select distinct pnum from ord where cnum = 2002 and snum in (select distinct snum from ord where cnum = 2001);
+
+4.	Вывести имена всех покупателей, которые никогда не заказывали у продавцов из Екатеринбурга.
+select name from cust where cnum not in (select distinct cnum from ord where snum in (select snum from sal where city = 'Yekaterinburg'));
+
+5.	Вывести покупателей, рейтинг которых больше, чем рейтинг каждого покупателя из Москвы.
+select name from cust where rating > (select max(rating) from cust where city = 'Moscow'); 
+select name from cust where rating > all (select rating from cust where city = 'Moscow'); 
+
+6.	Вывести покупателей, которые заказывали товары из своего города.
+select name from cust where cnum in 
+    (select distinct o.cnum from ord o where pnum in 
+        (select pnum from prod p where p.city = 
+            (select city from cust c where c.cnum = o.cnum)));
+
+select name from cust where cnum in 
+    (select distinct o.cnum from ord o, prod p 
+        where o.pnum = p.pnum and p.city = cust.city);
+
+7.	Вывести всю информацию о продуктах с дополнительным столбцом «категория товара» со следующими вариантами значений: «легкий», если вес меньше 500, «средний», если вес от 500 до 1000, «тяжелый», если вес больше 1000.
+select *, case
+    when weight < 500 then 'легкий'
+    when weight between 500 and 1000 then 'средний'
+    when weight > 1000 then 'тяжелый'
+    end as категория_товара
+from prod;
+
+8.	Вывести из таблицы заказов уникальные номера покупателей и показатель активности каждого из них на основе количества заказов: «активный» — 4+ заказа, «умеренный» — 2-3 заказа, «неактивный» — 1 заказ.
+select distinct o1.cnum, case
+    when (select count(o2.onum) from ord o2 where o2.cnum = o1.cnum) >= 4 then 'активный'
+    when (select count(o2.onum) from ord o2 where o2.cnum = o1.cnum) between 2 and 3 then 'умеренный'
+    when (select count(o2.onum) from ord o2 where o2.cnum = o1.cnum) = 1 then 'неактивный'
+    end as показатель_активности
+from ord o1;
+
+select cnum, case
+    when order_count >= 4 then 'активный'
+    when order_count between 2 and 3 then 'умеренный'
+    when order_count = 1 then 'неактивный'
+    end as показатель_активности
+from (select cnum, count(onum) as order_count
+    from ord
+    group by cnum
+)
+as order_stats;
+
+
+select name from cust where cnum = any (select cnum from ord);
+select name from cust c where exists (select 1 from ord where cnum = c.cnum);

@@ -1,0 +1,32 @@
+отличие where и having
+
+порядок операций
+1. select
+2. from
+3. where (фильтр до группировки)
+4. group by
+5. having (фильтр после группировки)
+6. order by
+
+1.Вывести количество покупателей с рейтингом больше 500.
+select count(*) from cust where rating > 500;
+
+2.Вывести первый и последний по алфавиту город из таблицы продавцов.
+select min(city), max(city) from sal;
+
+3.Вывести для каждого продавца наименьший номер покупателя, которому он продавал заказы.
+select snum, min(cnum) from ord group by snum;
+
+4.Вывести число уникальных продавцов, которые продавали продукты с номерами 1001-1003. 
+select count(distinct snum) from ord where pnum between 1001 and 1003;
+
+5.Вывести для каждого продавца его номер и общее количество проданных продуктов, 
+если это количество больше, чем 5.
+select snum, sum(amt) from ord group by snum having sum(amt) > 5;
+
+6.Вывести количество заказов для всех уникальных пар покупатель-продавец, 
+между которыми осуществлялись заказы.
+select cnum, snum, count(onum) as order_count from ord group by cnum, snum order by cnum, snum;
+
+7.Вывести все даты, в которые в заказах участвовали более 1 продавца и более 1 покупателя.
+select ord_date from ord group by ord_date having count(distinct cnum)>1 and count(distinct snum)>1;
