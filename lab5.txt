@@ -1,0 +1,65 @@
+Выполнить задания 1-3 с использованием оператора JOIN
+1.	Вывести информацию о всех продавцах. Добавить для каждого продавца каждый его заказ или NULL, если заказы отсутствуют.
+select sal.snum, name, comm, city, onum, pnum, amt, ord_date
+from sal
+left join ord on sal.snum = ord.snum
+order by sal.snum;
+
+select sal.snum, name, comm, city, onum, pnum, amt, ord_date
+from sal
+left join ord using(snum)
+order by sal.snum;
+
+2.	Вывести номер и объем заказа, имя и город продавца только для заказов, продавец которых из Новосибирска.
+select onum, amt, name, city
+from ord
+left join sal on ord.snum = sal.snum where city = 'Novosibirsk';
+
+select onum, amt, name, city
+from ord
+inner join sal on ord.snum = sal.snum and city = 'Novosibirsk';
+
+3.	Вывести список названий всех продуктов. Для продуктов, названия которых начинаются с букв O-Z, присоединить общее количество (сумму) этого продукта в заказах.
+select name, case
+    when name ~ '^[O-Z]' then coalesce(sum(amt), 0)
+    else 0
+end as total
+from prod
+left join ord using(pnum)
+group by prod.pnum;
+
+select name, case
+    when name ~ '^[O-Z]' then sum(amt)
+    else 0
+end as total
+from prod
+left join ord using(pnum)
+group by prod.pnum;
+
+Выполнить задание 4 с использованием CROSS JOIN
+4.	Вывести все уникальные пары номеров продавцов и покупателей, находящихся в одном городе.
+select sal.snum, cust.cnum
+from sal
+cross join cust where sal.city = cust.city;
+
+Выполнить задание 5 с использованием NATURAL JOIN
+5.	Вывести результат естественного соединение таблиц cust и sal. По каким полям соединились таблицы? (по name и city)
+select * from cust natural join sal;
+
+
+Выполнить задания 6-7 с использованием UNION/EXPECT/INTERSECT
+6.	Вывести полный список всех городов, в которых проживают покупатели и/или продавцы.
+select city from cust
+union
+select city from sal;
+
+7.	Вывести список городов, в которых производятся товары весом менее 1000, и проживают продавцы с комиссионными более 0.12.
+select city from prod where weight < 1000
+intersect
+select city from sal where comm > 0.12;
+
+Выполнить задание 8 с использованием подзапроса
+8.	Вывести имена и общий объем (сумму количеств товаров) заказов всех продавцов, находящихся в городах, где проживает ровно один покупатель.
+select name, (select sum(amt) from ord where snum = sal.snum) as total
+from sal
+where city in (select city from cust group by city having count(*) = 1);
