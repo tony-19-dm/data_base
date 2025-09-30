@@ -21,19 +21,17 @@ inner join sal on ord.snum = sal.snum and city = 'Novosibirsk';
 
 3.	Вывести список названий всех продуктов. Для продуктов, названия которых начинаются с букв O-Z, присоединить общее количество (сумму) этого продукта в заказах.
 select name, case
-    when name ~ '^[O-Z]' then coalesce(sum(amt), 0)
+    when name ~ '^[O-Z]' then sum(amt)
     else 0
 end as total
 from prod
 left join ord using(pnum)
 group by prod.pnum;
 
-select name, case
-    when name ~ '^[O-Z]' then sum(amt)
-    else 0
-end as total
+select name, sum(amt) as total
 from prod
-left join ord using(pnum)
+left join ord on prod.pnum = ord.pnum
+and name ~ '^[O-Z]'
 group by prod.pnum;
 
 Выполнить задание 4 с использованием CROSS JOIN
@@ -63,3 +61,13 @@ select city from sal where comm > 0.12;
 select name, (select sum(amt) from ord where snum = sal.snum) as total
 from sal
 where city in (select city from cust group by city having count(*) = 1);
+
+select name, sum(amt)
+from sal
+left join ord using(snum)
+where sal.city in (
+    select city 
+    from cust 
+    group by city 
+    having count(*) = 1
+)group by sal.name;
