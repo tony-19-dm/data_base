@@ -1,0 +1,60 @@
+1. Для каждого продавца в таблице ord пронумеровать его заказы в порядке уменьшения их объема (amt). 
+Необходимо использовать функции row_number(), rank(), dense_rank(). В чем их отличие? 
+
+select snum, onum, amt,
+row_number() over (partition by snum order by amt desc),
+rank() over (partition by snum order by amt desc),
+dense_rank() over (partition by snum order by amt desc)
+from ord;
+
+2. Выполнить задание 1, только теперь нумерование должно производиться для каждой уникальной пары продавец-покупатель. 
+Необходимо дополнительно использовать оператор window для сокращения записи у одинаковых партиций.
+
+select snum, onum, amt,
+row_number() over sell_cust_win as row_num,
+rank() over sell_cust_win as rank_num,
+dense_rank() over sell_cust_win as dense_rank_num
+from ord
+window sell_cust_win as (partition by snum, cnum order by amt desc);
+
+3.  Для каждого продавца вывести всю информацию о нем и дополнительный столбец, в котором рассчитывается, 
+во сколько раз его комиссионные выше, чем средние комиссионные по его городу (значение округлить до 1 цифры после запятой). 
+Отсортировать выборку по городу и имени продавца.
+
+select *, round(comm / avg(comm) over (partition by city), 1) as comm_ratio
+from sal order by city, name;
+
+4. Вывести информацию о каждом заказе. Добавить дополнительный столбец, в котором указан объем максимального заказа из тех, 
+что уже были совершены на момент данного заказа (т.е. предыдущих), включая сам текущий заказ. 
+Заказы должны быть отсортированы по дате, при одинаковой дате - по номеру заказа.
+
+select *,
+       max(amt) over (order by ord_date, onum ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as max_amt_so_far
+from ord
+order ord_date, onum;
+
+5. Выполнить задание 4, только теперь в дополнительном столбце должен указываться объем максимального заказа из тех, 
+что уже были совершены на момент данного заказа (т.е. предыдущих), включая сам текущий заказ, но только среди заказов ЭТОГО ПРОДАВЦА. 
+Заказы должны быть отсортированы сначала по номеру продавца, а затем уже по дате, номеру заказа.  
+
+select *, 
+max(amt) over (partition by snum order by ord_date, onum ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as max_amt_so_far
+from ord
+order by snum, ord_date, onum;
+
+
+6. Для каждого продавца рассчитать, на сколько его каждый заказ больше (в единицах amt), 
+чем предыдущий его же заказ, и меньше, чем следующий его же заказ (упорядочивание заказов - по дате, номеру заказа).
+
+select *,
+       amt - lag(amt) over (partition by snum order by ord_date, onum) as prev_amt_diff,
+       lead(amt) over (partition by snum order by ord_date, onum) - amt as next_amt_diff
+from ord
+order by snum, ord_date, onum;
+
+7. Для каждого заказа вывести количество заказов, в которых объем (amt) отличается от объема (amt) текущего заказа не более, 
+чем на 1 в любую сторону. Используйте фрейм вида RANGE.
+
+select *,
+count(*) over (order by amt range between 1 preceding and 1 following) as amt_count
+from ord;

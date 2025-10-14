@@ -36,9 +36,9 @@ JOIN my_schema.cust c ON o.cnum = c.cnum
 JOIN my_schema.prod p ON o.pnum = p.pnum
 JOIN my_schema.sal s ON o.snum = s.snum
 WHERE 
-    o.amt > (SELECT AVG(amt) FROM my_schema.ord)  -- amt больше среднего
-    AND p.city != 'Saint Petersburg'    -- товар не из СПб
-    AND o.snum IN (                     -- продавец с <= 10 заказов
+    o.amt > (SELECT AVG(amt) FROM my_schema.ord)
+    AND p.city != 'Saint Petersburg'
+    AND o.snum IN (
         SELECT snum FROM my_schema.ord 
         GROUP BY snum 
         HAVING COUNT(*) <= 10
@@ -61,9 +61,9 @@ JOIN my_schema.cust c ON o.cnum = c.cnum
 JOIN my_schema.prod p ON o.pnum = p.pnum
 JOIN my_schema.sal s ON o.snum = s.snum
 WHERE 
-    o.amt > (SELECT AVG(amt) FROM my_schema.ord)  -- amt больше среднего
-    AND p.city != 'Saint Petersburg'    -- товар не из СПб
-    AND o.snum IN (                     -- продавец с <= 10 заказов
+    o.amt > (SELECT AVG(amt) FROM my_schema.ord)
+    AND p.city != 'Saint Petersburg'
+    AND o.snum IN (
         SELECT snum FROM my_schema.ord 
         GROUP BY snum 
         HAVING COUNT(*) <= 10
@@ -86,9 +86,9 @@ JOIN my_schema.cust c ON o.cnum = c.cnum
 JOIN my_schema.prod p ON o.pnum = p.pnum
 JOIN my_schema.sal s ON o.snum = s.snum
 WHERE 
-    o.amt > (SELECT AVG(amt) FROM my_schema.ord)  -- amt больше среднего
-    AND p.city != 'Saint Petersburg'    -- товар не из СПб
-    AND o.snum IN (                     -- продавец с <= 10 заказов
+    o.amt > (SELECT AVG(amt) FROM my_schema.ord)
+    AND p.city != 'Saint Petersburg'
+    AND o.snum IN (
         SELECT snum FROM my_schema.ord 
         GROUP BY snum 
         HAVING COUNT(*) <= 10
@@ -111,9 +111,9 @@ JOIN my_schema.cust c ON o.cnum = c.cnum
 JOIN my_schema.prod p ON o.pnum = p.pnum
 JOIN my_schema.sal s ON o.snum = s.snum
 WHERE 
-    o.amt > (SELECT AVG(amt) FROM my_schema.ord)  -- amt больше среднего
-    AND p.city != 'Saint Petersburg'    -- товар не из СПб
-    AND o.snum IN (                     -- продавец с <= 10 заказов
+    o.amt > (SELECT AVG(amt) FROM my_schema.ord)
+    AND p.city != 'Saint Petersburg'
+    AND o.snum IN (
         SELECT snum FROM my_schema.ord 
         GROUP BY snum 
         HAVING COUNT(*) <= 10
