@@ -2,7 +2,9 @@
 
 createdb my_db
 
-sudo psql -U antondmitriev -d my_db
+psql my_db
+
+create schema my_schema;
 
 SET SEARCH_PATH TO my_schema;
 
@@ -81,7 +83,7 @@ insert into ord values (4019, 1006, 2004, 3005, 2);
 insert into ord values (4020, 1006, 2003, 3002, 3);
 
 insert into ord values 
-(4021, 1001, 2001, 3001, 9, '2025-09-10'), 
+(4021, 1001, 2001, 3001, 9, '2025-09-10'),
 (4022, 1001, 2002, 3001, 1, '2025-09-14'),
 (4023, 1001, 2006, 3002, 9, '2025-09-15'),
 (4024, 1001, 2003, 3003, 2, '2025-09-12'),
