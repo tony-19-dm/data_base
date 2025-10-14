@@ -58,3 +58,64 @@ order by snum, ord_date, onum;
 select *,
 count(*) over (order by amt range between 1 preceding and 1 following) as amt_count
 from ord;
+
+
+select 
+    id,
+    month,
+    degree,
+
+    avg(degree) over (partition by month) as month_mk,
+
+    degree - avg(degree) over (partition by month) as diff,
+
+    var_samp(degree) over (partition by month) as month_dx,
+
+    stddev_samp(degree) over (partition by month) as month_sigma,
+
+    avg(degree) over () as mx,
+
+    var_samp(degree) over () as dx,
+
+    stddev_samp(degree) over () as sigma
+
+from temperature_data
+
+order by 
+    case month
+        when 'January' then 1
+        when 'February' then 2
+        when 'March' then 3
+        when 'April' then 4
+    end,
+    id;
+
+-- Создание таблицы
+CREATE TABLE temperature_data (
+    id INT,
+    month VARCHAR(20),
+    degree INT
+);
+
+-- Вставка данных
+INSERT INTO temperature_data (id, month, degree) VALUES
+(1, 'January', -10),
+(2, 'January', -12),
+(3, 'January', -29),
+(4, 'January', -12),
+(5, 'January', -18),
+(6, 'February', -18),
+(7, 'February', -22),
+(8, 'February', -21),
+(9, 'February', -10),
+(10, 'February', -9),
+(11, 'March', -6),
+(12, 'March', -3),
+(13, 'March', -16),
+(14, 'March', -4),
+(15, 'March', -13),
+(16, 'April', 4),
+(17, 'April', -1),
+(18, 'April', -6),
+(19, 'April', 1),
+(20, 'April', -9);
