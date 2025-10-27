@@ -243,3 +243,9 @@ LEFT JOIN tickets t ON f.flight_number = t.flight_number
 GROUP BY f.flight_number, f.departure_airport, f.arrival_airport, 
          f.scheduled_departure, a.name, ap.model, ap.capacity
 ORDER BY load_percentage DESC;
+
+-- Посмотреть пассажиров, летающих в Новосибирск
+SELECT * FROM frequent_flyers;
+
+-- Посмотреть загрузку рейсов
+SELECT * FROM flight_load;
