@@ -1,0 +1,153 @@
+-------------- 1 База данных --------------
+
+CREATE TABLE airlines (
+    airline_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    iata_code CHAR(2) NOT NULL UNIQUE
+);
+
+CREATE TABLE airplanes (
+    airplane_id INT PRIMARY KEY,
+    model VARCHAR(50) NOT NULL,
+    capacity INT NOT NULL,
+    airline_id INT,
+    FOREIGN KEY (airline_id) REFERENCES airlines(airline_id),
+    CONSTRAINT chk_capacity CHECK (capacity > 0)
+);
+
+CREATE TABLE flights (
+    flight_number INT PRIMARY KEY,
+    airline_id INT,
+    airplane_id INT,
+    departure_airport VARCHAR(3) NOT NULL,
+    arrival_airport VARCHAR(3) NOT NULL,
+    scheduled_departure TIMESTAMP NOT NULL,
+    scheduled_arrival TIMESTAMP NOT NULL,
+    flight_duration_minutes INT NOT NULL,
+    FOREIGN KEY (airline_id) REFERENCES airlines(airline_id),
+    FOREIGN KEY (airplane_id) REFERENCES airplanes(airplane_id),
+    CONSTRAINT chk_flight_duration CHECK (flight_duration_minutes > 0)
+);
+
+CREATE TABLE passengers (
+    passenger_id INT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    passport_number VARCHAR(20) NOT NULL UNIQUE,
+    date_of_birth DATE NOT NULL,
+    CONSTRAINT chk_dob_past CHECK (date_of_birth < CURRENT_DATE)
+);
+
+CREATE TABLE tickets (
+    ticket_id INT PRIMARY KEY,
+    flight_number INT,
+    passenger_id INT,
+    seat_number VARCHAR(5),
+    price DECIMAL(10, 2) NOT NULL,
+    purchase_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    FOREIGN KEY (flight_number) REFERENCES flights(flight_number),
+    FOREIGN KEY (passenger_id) REFERENCES passengers(passenger_id),
+    CONSTRAINT chk_price CHECK (price > 0)
+);
+
+-------------- 2 Заполнение таблиц --------------
+
+INSERT INTO airlines (airline_id, name, iata_code) VALUES
+(1, 'Аэрофлот', 'SU'),
+(2, 'Победа', 'DP'),
+(3, 'S7 Airlines', 'S7'),
+(4, 'Россия', 'FV'),
+(5, 'Уральские авиалинии', 'U6'),
+(6, 'UTair', 'UT'),
+(7, 'Nordwind', 'N4'),
+(8, 'Smartavia', '5N'),
+(9, 'Red Wings', 'WZ'),
+(10, 'AZUR Air', 'ZF');
+
+INSERT INTO airplanes (airplane_id, model, capacity, airline_id) VALUES
+-- Аэрофлот
+(1, 'Boeing 777-300ER', 375, 1),
+(2, 'Airbus А321', 230, 1),
+(3, 'Airbus A321NEO', 240, 1),
+(4, 'Boeing 737-800', 158, 1),
+
+-- Победа
+(5, 'Boeing 737-800', 189, 2),
+
+-- S7 Airlines
+(6, 'Airbus A319', 144, 3),
+(7, 'Airbus A320neo', 164, 3),
+(8, 'Airbus A321neo', 203, 3),
+(9, 'Airbus A321nx', 211, 3),
+(10, 'Boeing 737-800', 168, 3),
+(11, 'Embraer 170', 78, 3),
+
+-- Россия
+(12, 'Airbus A319-100', 138, 4),
+
+-- Уральские авиалинии
+(13, 'Airbus А319-100', 140, 5),
+
+-- UTAir
+(14, 'Airbus A319-100', 138, 6),
+
+-- Nordwind
+(15, 'Boeing 737-800', 189, 7),
+
+-- Smartavia
+(16, 'Airbus A320neo', 164, 8),
+
+-- Red Wings
+(17, 'Airbus A321neo', 203, 9),
+
+-- AZUR Air
+(18, 'Airbus A321nx', 211, 10);
+
+INSERT INTO flights (flight_number, airline_id, airplane_id, departure_airport, arrival_airport, scheduled_departure, scheduled_arrival, flight_duration_minutes) VALUES
+-- Новосибирск (OVB) → Москва (DME)
+(2502, 3, 6, 'OVB', 'DME', '2025-11-02 05:45:00', '2025-11-02 06:20:00', 275),
+(2504, 3, 8, 'OVB', 'DME', '2025-11-02 08:30:00', '2025-11-02 09:05:00', 275), 
+(2508, 3, 8, 'OVB', 'DME', '2025-11-02 11:55:00', '2025-11-02 12:35:00', 280),
+
+-- Москва (DME) → Новосибирск (OVB)
+(2505, 3, 6, 'DME', 'OVB', '2025-11-02 11:20:00', '2025-11-02 19:30:00', 250),
+(2507, 3, 8, 'DME', 'OVB', '2025-11-02 13:35:00', '2025-11-02 21:45:00', 250),
+(2509, 3, 8, 'DME', 'OVB', '2025-11-02 16:45:00', '2025-11-03 00:55:00', 250),
+
+-- Москва (DME) → Санкт-Петербург (LED)
+(1011, 3, 7, 'DME', 'LED', '2025-11-02 08:00:00', '2025-11-02 09:30:00', 90),
+(1015, 3, 7, 'DME', 'LED', '2025-11-02 12:15:00', '2025-11-02 13:45:00', 90),
+
+-- Санкт-Петербург (LED) → Москва (DME)
+(1012, 3, 7, 'LED', 'DME', '2025-11-02 10:00:00', '2025-11-02 11:30:00', 90),
+(1016, 3, 7, 'LED', 'DME', '2025-11-02 16:00:00', '2025-11-02 17:30:00', 90);
+
+INSERT INTO passengers (passenger_id, first_name, last_name, passport_number, date_of_birth) VALUES
+(1, 'Иван', 'Петров', '4512 123456', '1985-03-15'),
+(2, 'Мария', 'Сидорова', '5214 654321', '1992-07-22'),
+(3, 'Алексей', 'Козлов', '4011 789012', '1978-11-03'),
+(4, 'Елена', 'Васильева', '4809 345678', '1989-05-18'),
+(5, 'Дмитрий', 'Николаев', '4615 901234', '1995-12-30');
+
+INSERT INTO tickets (ticket_id, flight_number, passenger_id, seat_number, price) VALUES
+
+-- Мария Сидорова (перелет туда-обратно Москва-СПб)
+(1, 1011, 2, '15C', 8900.00),   -- S7 1011 DME → LED
+(2, 1012, 2, '15D', 8700.00),   -- S7 1012 LED → DME
+
+-- Алексей Козлов (рейс в Новосибирск)
+(3, 2505, 3, '20F', 21500.00),  -- S7 2505 DME → OVB
+
+-- Елена Васильева (несколько рейсов)
+(4, 2504, 4, '05A', 19200.00),  -- S7 2504 OVB → DME
+(5, 1015, 4, '10B', 9500.00);   -- S7 1015 DME → LED
+
+-------------- 3 Запросы --------------
+
+createdb rgz
+
+psql rgz
+
+create schema my_schema;
+
+SET SEARCH_PATH TO my_schema;
