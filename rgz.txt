@@ -151,3 +151,95 @@ psql rgz
 create schema my_schema;
 
 SET SEARCH_PATH TO my_schema;
+
+1. Найти пассажиров, у которых суммарная стоимость всех купленных билетов превышает 20 000 рублей.
+
+SELECT 
+    p.first_name,
+    p.last_name,
+    COUNT(t.ticket_id) AS tickets_count,
+    SUM(t.price) AS total_spent
+FROM passengers p
+JOIN tickets t ON p.passenger_id = t.passenger_id
+GROUP BY p.passenger_id, p.first_name, p.last_name
+HAVING SUM(t.price) > 20000
+ORDER BY total_spent DESC;
+
+2. Вывести авиакомпании и количество различных моделей самолетов в их парке, у которых в парке более 2 моделей.
+
+SELECT 
+    a.name AS airline_name,
+    COUNT(DISTINCT ap.model) AS different_models_count
+FROM airlines a
+JOIN airplanes ap ON a.airline_id = ap.airline_id
+GROUP BY a.airline_id, a.name
+HAVING COUNT(DISTINCT ap.model) > 2
+ORDER BY different_models_count DESC;
+
+3. Вывести полную информацию о всех билетах: ФИО пассажира, номер рейса, направление, время вылета, номер места и стоимость.
+
+SELECT 
+    p.first_name,
+    p.last_name,
+    f.flight_number,
+    CONCAT(f.departure_airport, ' → ', f.arrival_airport) AS route,
+    TO_CHAR(f.scheduled_departure, 'DD.MM.YYYY HH24:MI') AS departure_time,
+    t.seat_number,
+    t.price
+FROM tickets t
+JOIN passengers p ON t.passenger_id = p.passenger_id
+JOIN flights f ON t.flight_number = f.flight_number
+JOIN airlines a ON f.airline_id = a.airline_id
+ORDER BY f.scheduled_departure, p.last_name;
+
+4. Найти все рейсы S7 Airlines с указанием модели самолета и его вместимости.
+
+SELECT 
+    f.flight_number,
+    CONCAT(f.departure_airport, ' → ', f.arrival_airport) AS route,
+    TO_CHAR(f.scheduled_departure, 'DD.MM.YYYY HH24:MI') AS departure_time,
+    ap.model AS airplane_model,
+    ap.capacity,
+    CONCAT(FLOOR(f.flight_duration_minutes / 60), 'ч ', 
+           f.flight_duration_minutes % 60, 'м') AS duration
+FROM flights f
+JOIN airlines a ON f.airline_id = a.airline_id
+JOIN airplanes ap ON f.airplane_id = ap.airplane_id
+WHERE a.name = 'S7 Airlines'
+ORDER BY f.scheduled_departure;
+
+5. Создать представление frequent_flyers, которое показывает пассажиров, которые купили билеты на рейсы в Новосибирск (OVB).
+
+CREATE VIEW frequent_flyers AS
+SELECT DISTINCT
+    p.passenger_id,
+    p.first_name,
+    p.last_name,
+    p.passport_number
+FROM passengers p
+WHERE p.passenger_id IN (
+    SELECT t.passenger_id
+    FROM tickets t
+    JOIN flights f ON t.flight_number = f.flight_number
+    WHERE f.arrival_airport = 'OVB' OR f.departure_airport = 'OVB'
+);
+
+6. Создать представление flight_load для анализа загрузки рейсов.
+
+CREATE VIEW flight_load AS
+SELECT 
+    f.flight_number,
+    CONCAT(f.departure_airport, ' → ', f.arrival_airport) AS route,
+    TO_CHAR(f.scheduled_departure, 'DD.MM.YYYY HH24:MI') AS departure_time,
+    a.name AS airline,
+    ap.model AS airplane_model,
+    ap.capacity,
+    COUNT(t.ticket_id) AS tickets_sold,
+    ROUND((COUNT(t.ticket_id) * 100.0 / ap.capacity), 1) AS load_percentage
+FROM flights f
+JOIN airlines a ON f.airline_id = a.airline_id
+JOIN airplanes ap ON f.airplane_id = ap.airplane_id
+LEFT JOIN tickets t ON f.flight_number = t.flight_number
+GROUP BY f.flight_number, f.departure_airport, f.arrival_airport, 
+         f.scheduled_departure, a.name, ap.model, ap.capacity
+ORDER BY load_percentage DESC;
