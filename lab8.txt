@@ -1,0 +1,27 @@
+1.
+SHOW work_mem;
+
+ALTER SYSTEM SET work_mem = '8MB';
+
+SELECT pg_reload_conf();
+
+ALTER SYSTEM RESET work_mem;
+
+2.
+
+psql -U student -d tools_overview -f ddl.sql
+psql -U student -d tools_overview -f populate.sql
+
+или
+
+\i ddl.sql
+\i populate.sql
+
+\dt my_table проверка создания таблицы
+SELECT * FROM my_table;
+
+3.
+
+journalctl -u postgresql --since today
+
+tail -n 10 /var/log/postgresql/postgresql-16-main.log
