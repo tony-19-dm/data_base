@@ -1,0 +1,191 @@
+1.1
+
+create database lab_9;
+create schema student;
+create schema app;
+
+CREATE T2ABLE app.customers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20)
+);
+
+CREATE TABLE app.items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(8,2)
+);
+
+CREATE TABLE student.users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE student.products (
+    product_id SERIAL PRIMARY KEY,
+    product_name VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) NOT NULL
+);
+
+
+1.2
+
+\dn
+\dnS
+\dt student.*
+\dt app.*
+
+1.3
+
+SET search_path TO student, app;
+ALTER DATABASE lab_9 SET search_path TO student, app;
+
+SELECT * FROM customers;
+SELECT * FROM users;
+
+CREATE TABLE student.test_table (id SERIAL, data VARCHAR(50));
+CREATE TABLE app.test_table (id SERIAL, info VARCHAR(50));
+
+INSERT INTO student.test_table (data) VALUES ('Из student');
+INSERT INTO app.test_table (info) VALUES ('Из app');
+
+должна вернуться запись из student
+SELECT * FROM test_table;
+
+2.1
+CREATE DATABASE ts9;
+\c ts9
+
+\! sudo mkdir /var/lib/postgresql/ts_dir
+\! sudo chown postgres /var/lib/postgresql/ts_dir
+CREATE TABLESPACE ts LOCATION '/var/lib/postgresql/ts_dir';
+
+CREATE TABLE t(id integer PRIMARY KEY, s text) TABLESPACE ts;
+
+INSERT INTO t(id, s)
+SELECT id, id::text FROM generate_series(1,100_000) id;
+
+2.2
+
+SELECT pg_size_pretty(pg_database_size('ts9'));
+
+SELECT pg_size_pretty(pg_total_relation_size('t'));
+SELECT pg_size_pretty(pg_table_size('t'));
+
+SELECT pg_size_pretty(pg_tablespace_size('ts'));
+SELECT pg_size_pretty(pg_tablespace_size('pg_default'));
+
+2.3
+
+ALTER TABLE t SET TABLESPACE pg_default;
+
+2.4
+
+\db
+DROP TABLESPACE ts;
+\db
+
+3.1
+CREATE DATABASE bookstore;
+CREATE SCHEMA bookstore;
+SET search_path TO bookstore;
+ALTER DATABASE bookstore SET search_path TO bookstore;
+
+3.2
+\i bs.sql
+
+3.3
+\i data.sql
+
+SELECT * FROM books;
+SELECT * FROM authors;
+SELECT * FROM authorship;
+SELECT * FROM operations;
+
+3.4
+\i views.sql
+
+
+4.1
+books - добавление рейтинг, год выпуска, количество страниц, описание
+authors - биография, годы жизни
+operations - тип операции, id продавца, id покупателя
+
+4.2
+
+CREATE TABLE pub2lishers (
+    publisher_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    address TEXT,
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    website VARCHAR(255),
+    founded_year INTEGER
+);
+
+-- связь в таблицу books
+ALTER TABLE books ADD COLUMN publisher_id INTEGER REFERENCES publishers(publisher_id);
+
+одик ко многим издательства -> книги
+
+4.3
+
+CREATE TABLE series (
+    series_id SERIAL PRIMARY KEY,
+    series_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    total_books INTEGER
+);
+
+-- связь в таблицу books
+ALTER TABLE books ADD COLUMN series_id INTEGER REFERENCES series(series_id);
+ALTER TABLE books ADD COLUMN series_order INTEGER; -- порядковый номер в серии
+
+4.4
+-- Основная таблица товаров
+CREATE TABLE products (
+    product_id SERIAL PRIMARY KEY,
+    product_type VARCHAR(50) NOT NULL, -- 'motherboard', 'cpu', 'ram', etc.
+    name VARCHAR(200) NOT NULL,
+    brand VARCHAR(50),
+    model VARCHAR(100),
+    description TEXT,
+    price DECIMAL(10,2),
+    warranty_months INTEGER,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица категорий товаров
+CREATE TABLE categories (
+    category_id SERIAL PRIMARY KEY,
+    category_name VARCHAR(50) NOT NULL,
+    parent_category_id INTEGER REFERENCES categories(category_id)
+);
+
+-- Связь товаров с категориями (многие-ко-многим)
+CREATE TABLE product_categories (
+    product_id INTEGER REFERENCES products(product_id),
+    category_id INTEGER REFERENCES categories(category_id),
+    PRIMARY KEY (product_id, category_id)
+);
+
+-- Гибкая таблица характеристик
+CREATE TABLE specifications (
+    spec_id SERIAL PRIMARY KEY,
+    spec_name VARCHAR(100) NOT NULL, -- 'CPU Socket', 'Memory Type', 'Capacity'
+    spec_unit VARCHAR(20), -- 'GHz', 'GB', 'W'
+    data_type VARCHAR(10) DEFAULT 'string' -- 'string', 'number', 'boolean'
+);
+
+-- Значения характеристик для товаров
+CREATE TABLE product_specs (
+    product_id INTEGER REFERENCES products(product_id),
+    spec_id INTEGER REFERENCES specifications(spec_id),
+    string_value VARCHAR(255),
+    number_value DECIMAL(12,4),
+    boolean_value BOOLEAN,
+    PRIMARY KEY (product_id, spec_id)
+);
