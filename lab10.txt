@@ -1,0 +1,277 @@
+1 Часть
+№1
+CREATE OR REPLACE FUNCTION bookstore.author_name(
+    last_name TEXT,
+    first_name TEXT,
+    middle_name TEXT DEFAULT NULL
+) 
+RETURNS TEXT
+LANGUAGE SQL
+IMMUTABLE
+AS $$
+    SELECT 
+        last_name || ' ' || 
+        LEFT(first_name, 1) || '.' ||
+        CASE 
+            WHEN middle_name IS NOT NULL AND middle_name != '' 
+            THEN LEFT(middle_name, 1) || '.'
+            ELSE ''
+        END;
+$$;
+
+SELECT bookstore.author_name('Пушкин', 'Александр', 'Сергеевич');
+SELECT bookstore.author_name('Свифт', 'Джонатан', NULL);
+
+CREATE OR REPLACE VIEW bookstore.authors_v AS
+SELECT 
+    author_id,
+    bookstore.author_name(last_name, first_name, middle_name) AS display_name
+FROM bookstore.authors;
+
+№2
+
+CREATE OR REPLACE FUNCTION bookstore.book_name(
+    p_book_id INTEGER,
+    p_title TEXT
+) 
+RETURNS TEXT
+LANGUAGE SQL
+STABLE
+AS $$
+    SELECT 
+        p_title || ' (' ||
+        COALESCE((
+            SELECT STRING_AGG(
+                bookstore.author_name(a.last_name, a.first_name, a.middle_name),
+                ', ' ORDER BY ah.seq_num
+            )
+            FROM bookstore.authorship ah
+            JOIN bookstore.authors a ON ah.author_id = a.author_id
+            WHERE ah.book_id = p_book_id
+        ), '') ||
+        ')';
+$$;
+
+CREATE OR REPLACE VIEW bookstore.catalog_v AS
+SELECT 
+    book_id,
+    bookstore.book_name(book_id, title) AS display_name
+FROM bookstore.books;
+
+2 Часть
+
+№1
+-- Создание процедуры для удаления дубликатов
+CREATE OR REPLACE PROCEDURE bookstore.remove_duplicate_authors()
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- Создаем временную таблицу для хранения авторов, которые нужно сохранить
+    CREATE TEMP TABLE unique_authors AS
+    SELECT DISTINCT ON (last_name, first_name, middle_name)
+        author_id,
+        last_name,
+        first_name,
+        middle_name
+    FROM bookstore.authors
+    ORDER BY last_name, first_name, middle_name, author_id;
+    
+    -- Обновляем ссылки в таблице authorship на сохраняемых авторов
+    UPDATE bookstore.authorship ash
+    SET author_id = ua.author_id
+    FROM unique_authors ua
+    WHERE ash.author_id IN (
+        SELECT a.author_id 
+        FROM bookstore.authors a
+        WHERE (a.last_name, a.first_name, a.middle_name) = (ua.last_name, ua.first_name, ua.middle_name)
+        AND a.author_id != ua.author_id
+    );
+    
+    -- Удаляем дубликаты авторов
+    DELETE FROM bookstore.authors
+    WHERE author_id NOT IN (SELECT author_id FROM unique_authors);
+    
+    -- Удаляем временную таблицу
+    DROP TABLE unique_authors;
+    
+    RAISE NOTICE 'Дубликаты авторов успешно удалены';
+END;
+$$;
+
+№2
+CREATE UNIQUE INDEX authors_unique_name_idx 
+ON bookstore.authors (
+    last_name, 
+    first_name, 
+    COALESCE(middle_name, '')
+);
+
+Практика +
+
+№1
+
+Тестовая схема
+CREATE SCHEMA IF NOT EXISTS test_overload;
+CREATE TABLE test_overload.numbers (value FLOAT);
+INSERT INTO test_overload.numbers VALUES (-5.0), (3.2), (-1.8), (4.5), (0.5);
+
+А
+-- Создаем процедуру с одним входным параметром
+CREATE OR REPLACE PROCEDURE test_overload.test_proc(input_val FLOAT)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE NOTICE 'Процедура с одним параметром: %', input_val;
+END;
+$$;
+
+Б
+CREATE OR REPLACE FUNCTION test_overload.test_proc(input_val FLOAT)
+RETURNS FLOAT
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN input_val * 2;
+END;
+$$;
+
+В
+CREATE OR REPLACE PROCEDURE test_overload.test_proc(
+    IN input_val FLOAT,
+    OUT output_val FLOAT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    output_val := input_val * 3;
+    RAISE NOTICE 'Процедура с IN/OUT: % -> %', input_val, output_val;
+END;
+$$;
+
+№2
+CREATE OR REPLACE PROCEDURE test_overload.normalize_data(
+    INOUT coefficient FLOAT DEFAULT NULL
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    max_abs_value FLOAT;
+    rows_updated INTEGER;
+BEGIN
+    -- Находим максимальное абсолютное значение
+    SELECT MAX(ABS(value)) INTO max_abs_value
+    FROM test_overload.numbers;
+    
+    RAISE NOTICE 'Максимальное абсолютное значение: %', max_abs_value;
+    
+    -- Если все значения нулевые или таблица пуста
+    IF max_abs_value IS NULL OR max_abs_value = 0 THEN
+        coefficient := 1.0;
+        RAISE NOTICE 'Коэффициент нормализации: 1.0 (данные не требуют нормализации)';
+        RETURN;
+    END IF;
+    
+    -- Нормализуем данные
+    UPDATE test_overload.numbers 
+    SET value = value / max_abs_value;
+    
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+    
+    -- Возвращаем коэффициент
+    coefficient := max_abs_value;
+    
+    RAISE NOTICE 'Нормализация завершена. Обновлено строк: %, коэффициент: %', 
+                 rows_updated, coefficient;
+END;
+$$;
+
+3 Часть
+№1
+
+CREATE OR REPLACE FUNCTION bookstore.onhand_qty(book bookstore.books)
+RETURNS INTEGER
+LANGUAGE SQL
+STABLE
+AS $$
+    SELECT COALESCE(
+        (SELECT SUM(qty_change) 
+         FROM bookstore.operations 
+         WHERE book_id = book.book_id),
+        0
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION bookstore.get_book_authors(p_book_id INTEGER)
+RETURNS TEXT
+LANGUAGE SQL
+STABLE
+AS $$
+    SELECT STRING_AGG(
+        a.last_name || ' ' || a.first_name || 
+        CASE WHEN a.middle_name IS NOT NULL THEN ' ' || a.middle_name ELSE '' END,
+        ', ' ORDER BY ah.seq_num
+    )
+    FROM bookstore.authorship ah
+    JOIN bookstore.authors a ON ah.author_id = a.author_id
+    WHERE ah.book_id = p_book_id;
+$$;
+
+
+
+CREATE OR REPLACE VIEW bookstore.catalog_v AS
+SELECT 
+    b.book_id,
+    b.title,
+    bookstore.book_name(b.book_id, b.title) AS display_name,
+    bookstore.get_book_authors(b.book_id) AS authors_full,
+    (SELECT SUM(qty_change) FROM bookstore.operations WHERE book_id = b.book_id) AS onhand_qty_calc
+FROM bookstore.books b;
+
+№2
+-- Табличная функция для поиска книг
+CREATE OR REPLACE FUNCTION bookstore.get_catalog(
+    author_name TEXT DEFAULT NULL,
+    book_title TEXT DEFAULT NULL,
+    in_stock BOOLEAN DEFAULT NULL
+)
+RETURNS TABLE(
+    book_id INTEGER,
+    display_name TEXT,
+    onhand_qty INTEGER
+)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        cv.book_id,
+        cv.display_name,
+        cv.onhand_qty
+    FROM bookstore.catalog_v cv
+    WHERE 
+        -- Поиск по автору (в полном списке авторов)
+        (author_name IS NULL OR author_name = '' OR 
+         cv.authors_full ILIKE '%' || author_name || '%')
+        AND
+        -- Поиск по названию книги
+        (book_title IS NULL OR book_title = '' OR 
+         cv.title ILIKE '%' || book_title || '%')
+        AND
+        -- Фильтр по наличию на складе
+        (in_stock IS NULL OR 
+         (in_stock = true AND cv.onhand_qty > 0) OR
+         (in_stock = false AND cv.onhand_qty <= 0))
+    ORDER BY cv.title;
+END;
+$$;
+
+-- Сохраняем оригинальное имя display_name, добавляем новые поля в конец
+CREATE OR REPLACE VIEW bookstore.catalog_v AS
+SELECT 
+    b.book_id,
+    bookstore.book_name(b.book_id, b.title) AS display_name, 
+    b.title,                                                 
+    bookstore.get_book_authors(b.book_id) AS authors_full,  
+    bookstore.onhand_qty(b) AS onhand_qty                     
+FROM bookstore.books b;
