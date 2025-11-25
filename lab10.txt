@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION bookstore.author_name(
 RETURNS TEXT
 LANGUAGE SQL
 IMMUTABLE
-AS $$
+BEGIN ATOMIC
     SELECT 
         last_name || ' ' || 
         LEFT(first_name, 1) || '.' ||
@@ -17,7 +17,7 @@ AS $$
             THEN LEFT(middle_name, 1) || '.'
             ELSE ''
         END;
-$$;
+END;
 
 SELECT bookstore.author_name('Пушкин', 'Александр', 'Сергеевич');
 SELECT bookstore.author_name('Свифт', 'Джонатан', NULL);
@@ -37,7 +37,7 @@ CREATE OR REPLACE FUNCTION bookstore.book_name(
 RETURNS TEXT
 LANGUAGE SQL
 STABLE
-AS $$
+BEGIN ATOMIC
     SELECT 
         p_title || ' (' ||
         COALESCE((
@@ -50,7 +50,7 @@ AS $$
             WHERE ah.book_id = p_book_id
         ), '') ||
         ')';
-$$;
+END;
 
 CREATE OR REPLACE VIEW bookstore.catalog_v AS
 SELECT 
@@ -64,8 +64,7 @@ FROM bookstore.books;
 -- Создание процедуры для удаления дубликатов
 CREATE OR REPLACE PROCEDURE bookstore.remove_duplicate_authors()
 LANGUAGE plpgsql
-AS $$
-BEGIN
+BEGIN ATOMIC
     -- Создаем временную таблицу для хранения авторов, которые нужно сохранить
     CREATE TEMP TABLE unique_authors AS
     SELECT DISTINCT ON (last_name, first_name, middle_name)
@@ -96,7 +95,6 @@ BEGIN
     
     RAISE NOTICE 'Дубликаты авторов успешно удалены';
 END;
-$$;
 
 №2
 CREATE UNIQUE INDEX authors_unique_name_idx 
@@ -119,21 +117,17 @@ INSERT INTO test_overload.numbers VALUES (-5.0), (3.2), (-1.8), (4.5), (0.5);
 -- Создаем процедуру с одним входным параметром
 CREATE OR REPLACE PROCEDURE test_overload.test_proc(input_val FLOAT)
 LANGUAGE plpgsql
-AS $$
-BEGIN
+BEGIN ATOMIC
     RAISE NOTICE 'Процедура с одним параметром: %', input_val;
 END;
-$$;
 
 Б
 CREATE OR REPLACE FUNCTION test_overload.test_proc(input_val FLOAT)
 RETURNS FLOAT
 LANGUAGE plpgsql
-AS $$
-BEGIN
+BEGIN ATOMIC
     RETURN input_val * 2;
 END;
-$$;
 
 В
 CREATE OR REPLACE PROCEDURE test_overload.test_proc(
@@ -141,23 +135,20 @@ CREATE OR REPLACE PROCEDURE test_overload.test_proc(
     OUT output_val FLOAT
 )
 LANGUAGE plpgsql
-AS $$
-BEGIN
+BEGIN ATOMIC
     output_val := input_val * 3;
     RAISE NOTICE 'Процедура с IN/OUT: % -> %', input_val, output_val;
 END;
-$$;
 
 №2
 CREATE OR REPLACE PROCEDURE test_overload.normalize_data(
     INOUT coefficient FLOAT DEFAULT NULL
 )
 LANGUAGE plpgsql
-AS $$
+BEGIN ATOMIC
 DECLARE
     max_abs_value FLOAT;
     rows_updated INTEGER;
-BEGIN
     -- Находим максимальное абсолютное значение
     SELECT MAX(ABS(value)) INTO max_abs_value
     FROM test_overload.numbers;
@@ -183,7 +174,6 @@ BEGIN
     RAISE NOTICE 'Нормализация завершена. Обновлено строк: %, коэффициент: %', 
                  rows_updated, coefficient;
 END;
-$$;
 
 3 Часть
 №1
@@ -192,20 +182,20 @@ CREATE OR REPLACE FUNCTION bookstore.onhand_qty(book bookstore.books)
 RETURNS INTEGER
 LANGUAGE SQL
 STABLE
-AS $$
+BEGIN ATOMIC
     SELECT COALESCE(
         (SELECT SUM(qty_change) 
          FROM bookstore.operations 
          WHERE book_id = book.book_id),
         0
     );
-$$;
+END;
 
 CREATE OR REPLACE FUNCTION bookstore.get_book_authors(p_book_id INTEGER)
 RETURNS TEXT
 LANGUAGE SQL
 STABLE
-AS $$
+BEGIN ATOMIC
     SELECT STRING_AGG(
         a.last_name || ' ' || a.first_name || 
         CASE WHEN a.middle_name IS NOT NULL THEN ' ' || a.middle_name ELSE '' END,
@@ -214,7 +204,7 @@ AS $$
     FROM bookstore.authorship ah
     JOIN bookstore.authors a ON ah.author_id = a.author_id
     WHERE ah.book_id = p_book_id;
-$$;
+END;
 
 
 
@@ -241,8 +231,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql
 STABLE
-AS $$
-BEGIN
+BEGIN ATOMIC
     RETURN QUERY
     SELECT 
         cv.book_id,
@@ -264,7 +253,6 @@ BEGIN
          (in_stock = false AND cv.onhand_qty <= 0))
     ORDER BY cv.title;
 END;
-$$;
 
 -- Сохраняем оригинальное имя display_name, добавляем новые поля в конец
 CREATE OR REPLACE VIEW bookstore.catalog_v AS
