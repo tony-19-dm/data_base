@@ -1,0 +1,192 @@
+-- 1. Функция MAP (полиморфная)
+CREATE OR REPLACE FUNCTION map(
+    arr anyarray,
+    func regprocedure
+) 
+RETURNS anyarray 
+LANGUAGE plpgsql
+DECLARE
+    result anyarray := '{}';
+    elem anyelement;
+    sql_text text;
+    func_name text;
+BEGIN ATOMIK
+    -- Получаем имя функции
+    func_name := func::text;
+    
+    -- Для каждого элемента массива применяем функцию
+    FOREACH elem IN ARRAY arr
+    LOOP
+        -- Динамически вызываем функцию
+        EXECUTE format('SELECT %s($1)', func_name)
+        INTO elem
+        USING elem;
+        
+        result := array_append(result, elem);
+    END LOOP;
+    
+    RETURN result;
+END;
+
+
+-- 2. Функция REDUCE (полиморфная)
+CREATE OR REPLACE FUNCTION reduce(
+    arr anyarray,
+    func regprocedure,
+    initial_value anyelement DEFAULT NULL
+) 
+RETURNS anyelement 
+LANGUAGE plpgsql
+DECLARE
+    accumulator anyelement;
+    elem anyelement;
+    i int;
+    sql_text text;
+    func_name text;
+    has_initial bool;
+BEGIN ATOMIK
+    -- Получаем имя функции
+    func_name := func::text;
+    
+    -- Проверяем, передан ли начальный элемент
+    has_initial := initial_value IS NOT NULL;
+    
+    IF has_initial THEN
+        accumulator := initial_value;
+        i := 1;
+    ELSE
+        IF array_length(arr, 1) = 0 THEN
+            RETURN NULL;
+        END IF;
+        accumulator := arr[1];
+        i := 2;
+    END IF;
+    
+    -- Последовательно применяем функцию ко всем элементам
+    WHILE i <= array_length(arr, 1) LOOP
+        elem := arr[i];
+        
+        -- Динамически вызываем функцию с двумя аргументами
+        EXECUTE format('SELECT %s($1, $2)', func_name)
+        INTO accumulator
+        USING accumulator, elem;
+        
+        i := i + 1;
+    END LOOP;
+    
+    RETURN accumulator;
+END;
+
+
+-- 3. Примеры вспомогательных функций для демонстрации
+
+-- Функция для MAP (удвоение значения)
+CREATE OR REPLACE FUNCTION double_value(x anyelement)
+RETURNS anyelement
+LANGUAGE plpgsql
+BEGIN ATOMIK
+    RETURN x * 2;
+END;
+
+
+-- Функция для MAP (квадрат значения)
+CREATE OR REPLACE FUNCTION square_value(x anyelement)
+RETURNS anyelement
+LANGUAGE plpgsql
+BEGIN ATOMIK
+    RETURN x * x;
+END;
+
+
+-- Функция для REDUCE (сумма)
+CREATE OR REPLACE FUNCTION add_values(a anyelement, b anyelement)
+RETURNS anyelement
+LANGUAGE plpgsql
+BEGIN ATOMIK
+    RETURN a + b;
+END;
+
+
+-- Функция для REDUCE (произведение)
+CREATE OR REPLACE FUNCTION multiply_values(a anyelement, b anyelement)
+RETURNS anyelement
+LANGUAGE plpgsql
+BEGIN ATOMIK
+    RETURN a * b;
+END;
+
+
+-- 4. Тестирование функций
+DO $$
+DECLARE
+    numbers float[] := ARRAY[1.0, 2.0, 3.0, 4.0, 5.0];
+    doubled float[];
+    squared float[];
+    total_sum float;
+    total_product float;
+BEGIN ATOMIK
+    -- Тестирование MAP
+    RAISE NOTICE 'Исходный массив: %', numbers;
+    
+    doubled := map(numbers, 'double_value'::regprocedure);
+    RAISE NOTICE 'MAP (удвоение): %', doubled;
+    
+    squared := map(numbers, 'square_value'::regprocedure);
+    RAISE NOTICE 'MAP (квадрат): %', squared;
+    
+    -- Тестирование REDUCE
+    total_sum := reduce(numbers, 'add_values'::regprocedure);
+    RAISE NOTICE 'REDUCE (сумма): %', total_sum;
+    
+    total_product := reduce(numbers, 'multiply_values'::regprocedure);
+    RAISE NOTICE 'REDUCE (произведение): %', total_product;
+    
+    -- REDUCE с начальным значением
+    total_sum := reduce(numbers, 'add_values'::regprocedure, 10.0);
+    RAISE NOTICE 'REDUCE (сумма с начальным 10): %', total_sum;
+END;
+
+
+-- 5. Дополнительные примеры с разными типами данных
+DO $$
+DECLARE
+    int_array int[] := ARRAY[1, 2, 3, 4, 5];
+    str_array text[] := ARRAY['a', 'b', 'c', 'd'];
+    int_result int[];
+    str_result text[];
+BEGIN ATOMIK
+    -- Работа с целыми числами
+    RAISE NOTICE 'Целые числа: %', int_array;
+    int_result := map(int_array, 'square_value'::regprocedure);
+    RAISE NOTICE 'Квадраты целых: %', int_result;
+    
+    -- Функция для работы со строками
+    CREATE OR REPLACE FUNCTION uppercase_str(x text)
+    RETURNS text
+    LANGUAGE plpgsql
+    BEGIN ATOMIK
+        RETURN upper(x);
+    END;
+    
+    
+    -- Применение MAP к строкам
+    str_result := map(str_array, 'uppercase_str'::regprocedure);
+    RAISE NOTICE 'Строки в верхнем регистре: %', str_result;
+    
+    -- Функция для конкатенации строк
+    CREATE OR REPLACE FUNCTION concat_str(a text, b text)
+    RETURNS text
+    LANGUAGE plpgsql
+    BEGIN ATOMIK
+        RETURN a || b;
+    END;
+    
+    
+    -- Применение REDUCE к строкам
+    DECLARE
+        concat_result text;
+    BEGIN ATOMIK
+        concat_result := reduce(str_array, 'concat_str'::regprocedure, '');
+        RAISE NOTICE 'Конкатенация строк: %', concat_result;
+    END;
+END;
