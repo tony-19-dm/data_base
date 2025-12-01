@@ -10,7 +10,7 @@ DECLARE
     elem anyelement;
     sql_text text;
     func_name text;
-BEGIN ATOMIK
+BEGIN ATOMIC
     -- Получаем имя функции
     func_name := func::text;
     
@@ -44,7 +44,7 @@ DECLARE
     sql_text text;
     func_name text;
     has_initial bool;
-BEGIN ATOMIK
+BEGIN ATOMIC
     -- Получаем имя функции
     func_name := func::text;
     
@@ -84,7 +84,7 @@ END;
 CREATE OR REPLACE FUNCTION double_value(x anyelement)
 RETURNS anyelement
 LANGUAGE plpgsql
-BEGIN ATOMIK
+BEGIN ATOMIC
     RETURN x * 2;
 END;
 
@@ -93,7 +93,7 @@ END;
 CREATE OR REPLACE FUNCTION square_value(x anyelement)
 RETURNS anyelement
 LANGUAGE plpgsql
-BEGIN ATOMIK
+BEGIN ATOMIC
     RETURN x * x;
 END;
 
@@ -102,7 +102,7 @@ END;
 CREATE OR REPLACE FUNCTION add_values(a anyelement, b anyelement)
 RETURNS anyelement
 LANGUAGE plpgsql
-BEGIN ATOMIK
+BEGIN ATOMIC
     RETURN a + b;
 END;
 
@@ -111,7 +111,7 @@ END;
 CREATE OR REPLACE FUNCTION multiply_values(a anyelement, b anyelement)
 RETURNS anyelement
 LANGUAGE plpgsql
-BEGIN ATOMIK
+BEGIN ATOMIC
     RETURN a * b;
 END;
 
@@ -124,7 +124,7 @@ DECLARE
     squared float[];
     total_sum float;
     total_product float;
-BEGIN ATOMIK
+BEGIN ATOMIC
     -- Тестирование MAP
     RAISE NOTICE 'Исходный массив: %', numbers;
     
@@ -154,7 +154,7 @@ DECLARE
     str_array text[] := ARRAY['a', 'b', 'c', 'd'];
     int_result int[];
     str_result text[];
-BEGIN ATOMIK
+BEGIN ATOMIC
     -- Работа с целыми числами
     RAISE NOTICE 'Целые числа: %', int_array;
     int_result := map(int_array, 'square_value'::regprocedure);
@@ -164,7 +164,7 @@ BEGIN ATOMIK
     CREATE OR REPLACE FUNCTION uppercase_str(x text)
     RETURNS text
     LANGUAGE plpgsql
-    BEGIN ATOMIK
+    BEGIN ATOMIC
         RETURN upper(x);
     END;
     
@@ -177,7 +177,7 @@ BEGIN ATOMIK
     CREATE OR REPLACE FUNCTION concat_str(a text, b text)
     RETURNS text
     LANGUAGE plpgsql
-    BEGIN ATOMIK
+    BEGIN ATOMIC
         RETURN a || b;
     END;
     
@@ -185,7 +185,7 @@ BEGIN ATOMIK
     -- Применение REDUCE к строкам
     DECLARE
         concat_result text;
-    BEGIN ATOMIK
+    BEGIN ATOMIC
         concat_result := reduce(str_array, 'concat_str'::regprocedure, '');
         RAISE NOTICE 'Конкатенация строк: %', concat_result;
     END;
