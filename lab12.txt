@@ -1,192 +1,193 @@
--- 1. Функция MAP (полиморфная)
-CREATE OR REPLACE FUNCTION map(
-    arr anyarray,
-    func regprocedure
-) 
-RETURNS anyarray 
+CREATE OR REPLACE FUNCTION bookstore.map(p_array anyarray, p_proc regprocedure)
+RETURNS anyarray
 LANGUAGE plpgsql
+VOLATILE
+AS $$
 DECLARE
-    result anyarray := '{}';
-    elem anyelement;
-    sql_text text;
-    func_name text;
-BEGIN ATOMIC
-    -- Получаем имя функции
-    func_name := func::text;
-    
-    -- Для каждого элемента массива применяем функцию
-    FOREACH elem IN ARRAY arr
-    LOOP
-        -- Динамически вызываем функцию
-        EXECUTE format('SELECT %s($1)', func_name)
-        INTO elem
-        USING elem;
-        
-        result := array_append(result, elem);
-    END LOOP;
-    
-    RETURN result;
+  proc_oid oid := p_proc::oid;
+  nspname text;
+  proname text;
+  elem_typname text;
+  res p_array%TYPE;
+BEGIN
+  IF p_array IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Получаем схему и имя целевой процедуры
+  SELECT n.nspname, p.proname
+    INTO nspname, proname
+  FROM pg_proc p
+  JOIN pg_namespace n ON p.pronamespace = n.oid
+  WHERE p.oid = proc_oid;
+
+  IF nspname IS NULL THEN
+    RAISE EXCEPTION 'map: cannot resolve procedure %', p_proc;
+  END IF;
+
+  -- Определяем тип элементов входного массива (строковое имя типа)
+  SELECT pg_catalog.format_type(pg_typeof((p_array)[1])::regtype, NULL) INTO elem_typname;
+
+  IF elem_typname IS NULL OR elem_typname = '' THEN
+    RAISE EXCEPTION 'map: cannot determine element type of input array';
+  END IF;
+
+  -- Формируем и выполняем безопасный вызов: schema.func((t.el)::elem_type)
+  EXECUTE format(
+    'SELECT array_agg(%I.%I((t.el)::%s) ORDER BY ord) FROM unnest($1) WITH ORDINALITY AS t(el, ord)',
+    nspname, proname, elem_typname
+  ) INTO res USING p_array;
+
+  RETURN res;
 END;
+$$;
 
 
--- 2. Функция REDUCE (полиморфная)
-CREATE OR REPLACE FUNCTION reduce(
-    arr anyarray,
-    func regprocedure,
-    initial_value anyelement DEFAULT NULL
-) 
-RETURNS anyelement 
+-- 2) REDUCE: специальная реализация для double precision[]
+CREATE OR REPLACE FUNCTION bookstore.reduce_double(p_array double precision[], p_proc regprocedure)
+RETURNS double precision
 LANGUAGE plpgsql
+VOLATILE
+AS $$
 DECLARE
-    accumulator anyelement;
-    elem anyelement;
-    i int;
-    sql_text text;
-    func_name text;
-    has_initial bool;
-BEGIN ATOMIC
-    -- Получаем имя функции
-    func_name := func::text;
-    
-    -- Проверяем, передан ли начальный элемент
-    has_initial := initial_value IS NOT NULL;
-    
-    IF has_initial THEN
-        accumulator := initial_value;
-        i := 1;
-    ELSE
-        IF array_length(arr, 1) = 0 THEN
-            RETURN NULL;
-        END IF;
-        accumulator := arr[1];
-        i := 2;
-    END IF;
-    
-    -- Последовательно применяем функцию ко всем элементам
-    WHILE i <= array_length(arr, 1) LOOP
-        elem := arr[i];
-        
-        -- Динамически вызываем функцию с двумя аргументами
-        EXECUTE format('SELECT %s($1, $2)', func_name)
-        INTO accumulator
-        USING accumulator, elem;
-        
-        i := i + 1;
-    END LOOP;
-    
-    RETURN accumulator;
+  proc_oid oid := p_proc::oid;
+  nspname text;
+  proname text;
+  n int;
+  i int;
+  acc double precision;
+  cur double precision;
+BEGIN
+  IF p_array IS NULL THEN RETURN NULL; END IF;
+
+  n := array_length(p_array,1);
+  IF n IS NULL OR n = 0 THEN RETURN NULL; END IF;
+
+  -- Получаем схему и имя целевой процедуры
+  SELECT n.nspname, p.proname INTO nspname, proname
+  FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid
+  WHERE p.oid = proc_oid;
+
+  IF nspname IS NULL THEN
+    RAISE EXCEPTION 'reduce_double: cannot resolve procedure %', p_proc;
+  END IF;
+
+  -- Инициализируем аккумулятор первым элементом
+  EXECUTE 'SELECT $1[1]' INTO acc USING p_array;
+  IF n = 1 THEN RETURN acc; END IF;
+
+  FOR i IN 2..n LOOP
+    EXECUTE 'SELECT $1[$2]' INTO cur USING p_array, i;
+    -- вызываем функцию: schema.func(acc::double precision, cur::double precision)
+    EXECUTE format('SELECT %I.%I($1::double precision, $2::double precision)', nspname, proname)
+      INTO acc USING acc, cur;
+  END LOOP;
+
+  RETURN acc;
 END;
+$$;
 
 
--- 3. Примеры вспомогательных функций для демонстрации
+-- 3) REDUCE: специальная реализация для numeric[]
+CREATE OR REPLACE FUNCTION bookstore.reduce_numeric(p_array numeric[], p_proc regprocedure)
+RETURNS numeric
+LANGUAGE plpgsql
+VOLATILE
+AS $$
+DECLARE
+  proc_oid oid := p_proc::oid;
+  nspname text;
+  proname text;
+  n int;
+  i int;
+  acc numeric;
+  cur numeric;
+BEGIN
+  IF p_array IS NULL THEN RETURN NULL; END IF;
 
--- Функция для MAP (удвоение значения)
-CREATE OR REPLACE FUNCTION double_value(x anyelement)
+  n := array_length(p_array,1);
+  IF n IS NULL OR n = 0 THEN RETURN NULL; END IF;
+
+  SELECT n.nspname, p.proname INTO nspname, proname
+  FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid
+  WHERE p.oid = proc_oid;
+
+  IF nspname IS NULL THEN
+    RAISE EXCEPTION 'reduce_numeric: cannot resolve procedure %', p_proc;
+  END IF;
+
+  EXECUTE 'SELECT $1[1]' INTO acc USING p_array;
+  IF n = 1 THEN RETURN acc; END IF;
+
+  FOR i IN 2..n LOOP
+    EXECUTE 'SELECT $1[$2]' INTO cur USING p_array, i;
+    EXECUTE format('SELECT %I.%I($1::numeric, $2::numeric)', nspname, proname)
+      INTO acc USING acc, cur;
+  END LOOP;
+
+  RETURN acc;
+END;
+$$;
+
+
+-- 4) Диспетчер reduce(anyarray, regprocedure) — вызывает нужную специализированную версию
+CREATE OR REPLACE FUNCTION bookstore.reduce(p_array anyarray, p_proc regprocedure)
 RETURNS anyelement
 LANGUAGE plpgsql
-BEGIN ATOMIC
-    RETURN x * 2;
-END;
-
-
--- Функция для MAP (квадрат значения)
-CREATE OR REPLACE FUNCTION square_value(x anyelement)
-RETURNS anyelement
-LANGUAGE plpgsql
-BEGIN ATOMIC
-    RETURN x * x;
-END;
-
-
--- Функция для REDUCE (сумма)
-CREATE OR REPLACE FUNCTION add_values(a anyelement, b anyelement)
-RETURNS anyelement
-LANGUAGE plpgsql
-BEGIN ATOMIC
-    RETURN a + b;
-END;
-
-
--- Функция для REDUCE (произведение)
-CREATE OR REPLACE FUNCTION multiply_values(a anyelement, b anyelement)
-RETURNS anyelement
-LANGUAGE plpgsql
-BEGIN ATOMIC
-    RETURN a * b;
-END;
-
-
--- 4. Тестирование функций
-DO $$
+VOLATILE
+AS $$
 DECLARE
-    numbers float[] := ARRAY[1.0, 2.0, 3.0, 4.0, 5.0];
-    doubled float[];
-    squared float[];
-    total_sum float;
-    total_product float;
-BEGIN ATOMIC
-    -- Тестирование MAP
-    RAISE NOTICE 'Исходный массив: %', numbers;
-    
-    doubled := map(numbers, 'double_value'::regprocedure);
-    RAISE NOTICE 'MAP (удвоение): %', doubled;
-    
-    squared := map(numbers, 'square_value'::regprocedure);
-    RAISE NOTICE 'MAP (квадрат): %', squared;
-    
-    -- Тестирование REDUCE
-    total_sum := reduce(numbers, 'add_values'::regprocedure);
-    RAISE NOTICE 'REDUCE (сумма): %', total_sum;
-    
-    total_product := reduce(numbers, 'multiply_values'::regprocedure);
-    RAISE NOTICE 'REDUCE (произведение): %', total_product;
-    
-    -- REDUCE с начальным значением
-    total_sum := reduce(numbers, 'add_values'::regprocedure, 10.0);
-    RAISE NOTICE 'REDUCE (сумма с начальным 10): %', total_sum;
-END;
+  elemtype regtype;
+BEGIN
+  IF p_array IS NULL THEN RETURN NULL; END IF;
 
+  SELECT pg_typeof((p_array)[1])::regtype INTO elemtype;
 
--- 5. Дополнительные примеры с разными типами данных
-DO $$
-DECLARE
-    int_array int[] := ARRAY[1, 2, 3, 4, 5];
-    str_array text[] := ARRAY['a', 'b', 'c', 'd'];
-    int_result int[];
-    str_result text[];
-BEGIN ATOMIC
-    -- Работа с целыми числами
-    RAISE NOTICE 'Целые числа: %', int_array;
-    int_result := map(int_array, 'square_value'::regprocedure);
-    RAISE NOTICE 'Квадраты целых: %', int_result;
-    
-    -- Функция для работы со строками
-    CREATE OR REPLACE FUNCTION uppercase_str(x text)
-    RETURNS text
-    LANGUAGE plpgsql
-    BEGIN ATOMIC
-        RETURN upper(x);
-    END;
-    
-    
-    -- Применение MAP к строкам
-    str_result := map(str_array, 'uppercase_str'::regprocedure);
-    RAISE NOTICE 'Строки в верхнем регистре: %', str_result;
-    
-    -- Функция для конкатенации строк
-    CREATE OR REPLACE FUNCTION concat_str(a text, b text)
-    RETURNS text
-    LANGUAGE plpgsql
-    BEGIN ATOMIC
-        RETURN a || b;
-    END;
-    
-    
-    -- Применение REDUCE к строкам
-    DECLARE
-        concat_result text;
-    BEGIN ATOMIC
-        concat_result := reduce(str_array, 'concat_str'::regprocedure, '');
-        RAISE NOTICE 'Конкатенация строк: %', concat_result;
-    END;
+  IF elemtype = 'double precision'::regtype THEN
+    RETURN bookstore.reduce_double(p_array::double precision[], p_proc);
+  ELSIF elemtype = 'numeric'::regtype THEN
+    RETURN bookstore.reduce_numeric(p_array::numeric[], p_proc);
+  ELSE
+    RAISE EXCEPTION 'reduce: unsupported element type %. Add specialized implementation for this type.', elemtype;
+  END IF;
 END;
+$$;
+
+-- Вспомогательная функция для reduce с double precision: возвращает наибольшее из двух чисел
+CREATE OR REPLACE FUNCTION bookstore.greatest_double(a double precision, b double precision)
+RETURNS double precision
+LANGUAGE sql
+IMMUTABLE
+AS $$
+SELECT greatest(a, b);
+$$;
+
+-- Вспомогательная функция для map с numeric: квадратный корень
+CREATE OR REPLACE FUNCTION bookstore.sqrt_numeric(x numeric)
+RETURNS numeric
+LANGUAGE sql
+IMMUTABLE
+AS $$
+SELECT |/ x;  -- оператор квадратного корня для numeric
+$$;
+
+-- Вспомогательная функция для reduce с numeric: возвращает наибольшее из двух чисел
+CREATE OR REPLACE FUNCTION bookstore.greatest_numeric(a numeric, b numeric)
+RETURNS numeric
+LANGUAGE sql
+IMMUTABLE
+AS $$
+SELECT greatest(a, b);
+$$;
+
+SELECT bookstore.map(ARRAY[4.0::double precision, 9.0::double precision],
+                     'pg_catalog.sqrt(double precision)'::regprocedure);
+
+SELECT bookstore.reduce(ARRAY[1.0::double precision, 3.0, 2.0, 0.5],
+                        'bookstore.greatest_double(double precision, double precision)'::regprocedure);
+
+SELECT bookstore.map(ARRAY[4::numeric,9::numeric]::numeric[],
+                     'bookstore.sqrt_numeric(numeric)'::regprocedure);
+
+SELECT bookstore.reduce(ARRAY[1::numeric,3,2,0.5]::numeric[],
+                        'bookstore.greatest_numeric(numeric, numeric)'::regprocedure);
